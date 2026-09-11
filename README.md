@@ -78,29 +78,70 @@ pred  = level + horizon·trend
 ```
 预测下一轮综合准确率。
 
-## 🚀 快速开始
+## 🚀 快速开始（从 GitHub 下载后）
 
-### 1. 环境准备
-```bash
-# Windows
-python -m venv .venv
-.venv\Scripts\activate
+> 从 GitHub 克隆或下载本项目后，按以下步骤即可运行。**不是双击即用**，需要先装 Python 环境和依赖。
 
-# 安装依赖
-pip install -r requirements.txt
+### 前提：安装 Python（建议 3.12）
 
-# 配置 DeepSeek API（可选，用于 Agent 筛选）
-set DEEPSEEK_API_KEY=your_api_key
+- 到 <https://www.python.org/downloads/> 下载安装 **Python 3.12**（3.10+ 均可）。
+- 安装时务必勾选 **Add Python to PATH**。
+- 验证是否装好：`python --version`（Windows 也可 `py --version`）。
+
+### 第 1 步：建虚拟环境 + 安装依赖
+
+```bat
+:: 进入项目里的 boss_auto_apply 目录
+cd boss_auto_apply
+
+:: 在项目根建 venv 并激活
+python -m venv ..\.venv
+..\.venv\Scripts\activate
+
+:: 安装依赖（国内用清华镜像更快）
+pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
 ```
 
-### 2. 启动 GUI
-```bash
-python gui.py
+> 主依赖：`DrissionPage`、`requests`、`httpx`、`numpy`、`lxml`、`openpyxl`、`python-docx`、`pywin32`。
+> `sentence-transformers`（语义过滤，约 1.5GB）**非必需** —— 见第 2 步，程序会自己问你要不要装。
+
+### 第 2 步：启动程序（首次运行会自检依赖）
+
+```bat
+cd boss_auto_apply
+..\.venv\Scripts\python.exe gui.py
 ```
 
-### 3. 启动 CLI 投递
-```bash
-python boss_auto_apply.py
+- 首次运行若缺少 `sentence-transformers`，程序会**弹窗询问是否自动安装**：
+  - 选「是」→ 用**清华镜像自动安装并显示下载进度**；
+  - 选「否」→ 跳过，**不影响投递**（只是少一层语义过滤）。
+- 已安装的话**不再询问**，直接进界面。
+
+### 第 3 步：手动扫码登录 BOSS 直聘
+
+- 程序会**自动打开浏览器**（需本机已装 **Chrome 或 Edge**）。
+- 首次运行请在浏览器里**手动扫码登录 BOSS 直聘**。
+- ⚠️ 程序**不保存**你的账号密码，登录态由浏览器管理。
+
+### 第 4 步：按需修改配置
+
+编辑 `boss_auto_apply/config.py`：
+
+| 配置项 | 作用 | 建议 |
+|--------|------|------|
+| `KEYWORDS` | 搜索关键词 | 如 `["AI", "大模型", "实习", "校招"]` |
+| `CITIES` | 投递城市 | 如 `["北京", "上海"]` |
+| `JOB_SEEKER_PROFILE` | 你的求职画像（目标岗/技能/经验） | Agent 筛选的基准，**填准** |
+| `FILTER_CONFIG` | 排除词 / 薪资范围 / 是否只投实习 | 按需 |
+| `DEEPSEEK_API_KEY`（环境变量） | 开启 Agent 读 JD 智能筛选 | 可选，默认关闭 |
+
+改完点界面上的「开始投递」即可。
+
+### 第 5 步（可选）：命令行投递
+
+```bat
+cd boss_auto_apply
+..\.venv\Scripts\python.exe main.py
 ```
 
 ## 📁 项目结构
