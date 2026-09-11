@@ -103,6 +103,23 @@ class BrowserManager:
         self.driver.scroll.down(pixel)
         time.sleep(delay)
 
+    def is_scrolled_to_bottom(self, tolerance=10):
+        """判断页面是否已滚动到底部：scrollTop + 可视高度 >= 页面总高度 - 容差"""
+        try:
+            r = self.driver.run_js(
+                "var d=document.documentElement,b=document.body;"
+                "var t=window.pageYOffset||d.scrollTop||b.scrollTop||0;"
+                "var h=window.innerHeight||d.clientHeight||b.clientHeight||0;"
+                "var s=Math.max(d.scrollHeight||0,b.scrollHeight||0);"
+                "return {t:t,h:h,s:s};"
+            )
+            if not isinstance(r, dict):
+                return False
+            return (r.get("t", 0) + r.get("h", 0)) >= (r.get("s", 0) - tolerance)
+        except Exception:
+            logger.debug("滚动到底检测异常", exc_info=True)
+            return False
+
     def random_delay(self, min_sec=3, max_sec=7):
         """随机延迟"""
         delay = random.uniform(min_sec, max_sec)

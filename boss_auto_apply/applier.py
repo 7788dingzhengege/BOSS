@@ -1526,14 +1526,20 @@ class JobApplier:
 
             if not new_jobs:
                 no_new_count += 1
-                logger.info("[滚动] 无新职位(%d/%d)", no_new_count, max_empty_scrolls)
-                if no_new_count >= max_empty_scrolls:
-                    # 连续无新职位，说明这个关键词已经滚到底了
-                    print(f"  ⚠️ 关键词 '{keyword}' 已无更多新职位", flush=True)
-                    logger.info("   '%s' 已无更多结果", keyword)
+                at_bottom = self.browser.is_scrolled_to_bottom()
+                logger.info("[滚动] 无新职位(%d/%d) 是否到底=%s", no_new_count, max_empty_scrolls, at_bottom)
+                # 双重确认：滚动位置确实到底 + 连续多次无新职位 → 才算真结束
+                if at_bottom and no_new_count >= 3:
+                    print(f"  ✅ 已确认滚到底（到底 + 连续{no_new_count}次无新职位），关键词 '{keyword}' 结束", flush=True)
+                    logger.info("   '%s' 已确认滚到底，结束", keyword)
                     break
-                # 滚动加载更多（BOSS直聘是无限滚动，不是URL翻页）
-                self.browser.scroll_down(pixel=800, delay=0.05)
+                # 安全兜底：极端情况防死循环
+                if no_new_count >= max_empty_scrolls:
+                    print(f"  ⚠️ 关键词 '{keyword}' 已达滚动上限({max_empty_scrolls})，结束", flush=True)
+                    logger.info("   '%s' 达滚动上限，结束", keyword)
+                    break
+                # 滚动加载更多（BOSS直聘是无限滚动，不是URL翻页）；等 3 秒让懒加载完成
+                self.browser.scroll_down(pixel=800, delay=3)
                 scroll_round += 1
                 # 每10次滚动打印一次进度
                 if no_new_count % 10 == 0:
@@ -1576,8 +1582,8 @@ class JobApplier:
                 # 有投递成功，重置连续过滤计数
                 filtered_batch_count = 0
 
-            # 处理完一批立刻滚动，继续找更多职位
-            self.browser.scroll_down(pixel=600, delay=0.05)
+            # 处理完一批立刻滚动，继续找更多职位；等 3 秒让懒加载完成
+            self.browser.scroll_down(pixel=600, delay=3)
             scroll_round += 1
 
         kw_applied = self._total_applied - kw_start_count
