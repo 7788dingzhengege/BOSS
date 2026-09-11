@@ -1,0 +1,32 @@
+# ===== 虚拟环境（体积巨大，必须排除）=====
+.venv/
+.venv_old_broken/
+venv/
+env/
+
+# ===== Python 缓存 =====
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+
+# ===== IDE =====
+.idea/
+.vscode/
+
+# ===== 打包产物 =====
+build/
+dist/
+
+# ===== 运行时数据 / 个人隐私（投递记录、简历、登录态、缓存）=====
+boss_auto_apply/data/
+api_mode/data/
+data/
+*.log
+
+# ===== 系统 =====
+.DS_Store
+Thumbs.db
+desktop.ini
