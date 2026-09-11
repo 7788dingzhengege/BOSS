@@ -237,6 +237,11 @@ RAG_CONFIG = {
 - 合理设置投递频率，避免账号风控
 - 仅用于个人求职场景，禁止商用
 
+## 👥 Contributors
+
+- [@7788dingzhengege](https://github.com/7788dingzhengege) — 项目作者 / 维护者
+- **WorkBuddy** — AI 编程助手（协助开发、调试与优化）
+
 ## 📄 License
 
 MIT
