@@ -23,7 +23,21 @@ from applier import JobApplier
 
 SETTINGS_FILE = "data/gui_settings.json"
 
+# 支持的投递平台（目前仅 BOSS 直聘已实现，其余为后续扩展位）
+PLATFORM_OPTIONS = ["BOSS直聘", "前程无忧", "智联招聘", "猎聘", "拉勾", "实习僧"]
+
+# 各平台介绍（平台, 实习, 校招, 社招, 面向人群/特点）—— ✅ 覆盖, — 基本不覆盖
+PLATFORM_INFO = [
+    ("BOSS直聘",   "✅", "✅", "✅", "全行业覆盖最广，直接聊 HR；主力平台"),
+    ("前程无忧",   "—",  "✅", "✅", "传统行业 / 制造业 / 职能岗"),
+    ("智联招聘",   "—",  "✅", "✅", "国企、央企、大型企业多"),
+    ("猎聘",       "—",  "—",  "✅", "中高端、资深、管理岗，猎头活跃"),
+    ("拉勾",       "—",  "—",  "✅", "互联网垂直（技术 / 产品 / 运营）"),
+    ("实习僧",     "✅", "✅", "—",  "专注实习 + 校招，在校生首选"),
+]
+
 DEFAULTS = {
+    "platform": "BOSS直聘",
     "keywords": ", ".join(KEYWORDS[:3]),
     "city": CITIES[0] if CITIES else "北京",
     "count": str(MAX_DAILY_APPLIES),
@@ -71,7 +85,7 @@ class ConfigGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("自动投递")
-        self.root.geometry("550x780")
+        self.root.geometry("560x700")
         self.root.resizable(False, False)
 
         root.eval('tk::PlaceWindow . center')
@@ -120,10 +134,7 @@ class ConfigGUI:
         self.root.configure(bg=LIGHT)
 
         header = ttk.Frame(root)
-        header.pack(fill='x', padx=15, pady=(10, 5))
-
-        title_label = ttk.Label(header, text="BOSS 直聘自动投递", style='Title.TLabel')
-        title_label.pack(side='left')
+        header.pack(fill='x', padx=12, pady=(8, 4))
 
         btn_group = ttk.Frame(header)
         btn_group.pack(side='right')
@@ -133,109 +144,114 @@ class ConfigGUI:
         restore_btn = ttk.Button(btn_group, text="重置", command=self.restore_defaults, style='Light.TButton')
         restore_btn.pack(side='left')
 
-        card_frame = ttk.LabelFrame(root, text="投递设置", style='Card.TLabelframe')
-        card_frame.pack(fill='x', padx=15, pady=(0, 8))
-        card_frame.configure(padding=10)
+        LBL = ('Microsoft YaHei', 8, 'bold')
+        P = 3  # 行间距
 
-        row = 0
+        # ====== 主卡片：只留常用的三项 ======
+        self.card_frame = ttk.LabelFrame(root, text="快速投递", style='Card.TLabelframe')
+        self.card_frame.pack(fill='x', padx=12, pady=(0, 4))
+        self.card_frame.configure(padding=7)
 
-        ttk.Label(card_frame, text="搜索关键词", font=('Microsoft YaHei', 8, 'bold')).grid(
-            row=row, column=0, sticky='w', pady=(0, 2), columnspan=2)
+        # 行1：投递平台 | 岗位关键词
+        ttk.Label(self.card_frame, text="投递平台", font=LBL).grid(row=0, column=0, sticky='w', pady=P)
+        self.platform_var = tk.StringVar(value=DEFAULTS["platform"])
+        ttk.Combobox(self.card_frame, textvariable=self.platform_var, values=PLATFORM_OPTIONS,
+                     state='readonly', width=12).grid(row=0, column=1, sticky='w', pady=P)
+        ttk.Label(self.card_frame, text="岗位关键词", font=LBL).grid(row=0, column=2, sticky='w', padx=(10, 6), pady=P)
         self.kw_var = tk.StringVar(value=DEFAULTS["keywords"])
-        kw_entry = ttk.Entry(card_frame, textvariable=self.kw_var)
-        kw_entry.grid(row=row+1, column=0, columnspan=2, sticky='ew', pady=(0, 6))
+        ttk.Entry(self.card_frame, textvariable=self.kw_var).grid(row=0, column=3, sticky='ew', pady=P)
 
-        row += 2
-        ttk.Label(card_frame, text="城市", font=('Microsoft YaHei', 8, 'bold')).grid(
-            row=row, column=0, sticky='w', pady=(0, 2))
-        ttk.Label(card_frame, text="投递数量", font=('Microsoft YaHei', 8, 'bold')).grid(
-            row=row, column=1, sticky='w', pady=(0, 2))
-
-        city_frame = ttk.Frame(card_frame)
-        city_frame.grid(row=row+1, column=0, sticky='w', pady=(0, 6))
+        # 行2：城市 | 更多设置按钮
+        ttk.Label(self.card_frame, text="城市", font=LBL).grid(row=1, column=0, sticky='w', pady=P)
         self.city_var = tk.StringVar(value=DEFAULTS["city"])
         city_names = list(CITY_OPTIONS.keys())
-        city_combo = ttk.Combobox(city_frame, textvariable=self.city_var,
-                                   values=city_names, state='readonly', width=10)
-        city_combo.pack(side='left')
+        ttk.Combobox(self.card_frame, textvariable=self.city_var, values=city_names,
+                     state='readonly', width=12).grid(row=1, column=1, sticky='w', pady=P)
+        btns_frame = ttk.Frame(self.card_frame)
+        btns_frame.grid(row=1, column=3, sticky='e', pady=P)
+        ttk.Button(btns_frame, text="ⓘ 平台介绍", command=self.open_platform_info,
+                   style='Light.TButton').pack(side='left', padx=(0, 4))
+        self.more_toggle_btn = ttk.Button(btns_frame, text="更多设置 ▾",
+                                          command=self.toggle_more, style='Light.TButton')
+        self.more_toggle_btn.pack(side='left')
 
-        count_frame = ttk.Frame(card_frame)
-        count_frame.grid(row=row+1, column=1, sticky='w', pady=(0, 6))
+        self.card_frame.columnconfigure(3, weight=1)
+
+        # ====== 折叠区（默认隐藏，点「更多设置」展开）======
+        self.more_container = ttk.Frame(root)
+        self._more_open = False
+
+        more_card = ttk.LabelFrame(self.more_container, text="更多设置", style='Card.TLabelframe')
+        more_card.pack(fill='x', padx=12, pady=(0, 4))
+        more_card.configure(padding=7)
+
+        # 投递数量
+        ttk.Label(more_card, text="投递数量", font=LBL).grid(row=0, column=0, sticky='w', pady=P)
+        count_frame = ttk.Frame(more_card)
+        count_frame.grid(row=0, column=1, columnspan=3, sticky='w', pady=P)
         self.count_var = tk.StringVar(value=DEFAULTS["count"])
-        counts = ["20", "40", "60", "100", "130"]
-        for c in counts:
-            rb = ttk.Radiobutton(count_frame, text=c, variable=self.count_var, value=c)
-            rb.pack(side='left', padx=(0, 4))
+        for c in ["20", "40", "60", "100", "130"]:
+            ttk.Radiobutton(count_frame, text=c, variable=self.count_var, value=c).pack(side='left', padx=(0, 3))
 
-        row += 2
-        ttk.Label(card_frame, text="公司规模", font=('Microsoft YaHei', 8, 'bold')).grid(
-            row=row, column=0, sticky='w', pady=(0, 2), columnspan=2)
-        scale_frame = ttk.Frame(card_frame)
-        scale_frame.grid(row=row+1, column=0, sticky='w', pady=(0, 6), columnspan=2)
+        # 公司规模
+        ttk.Label(more_card, text="公司规模", font=LBL).grid(row=1, column=0, sticky='w', pady=P)
+        scale_frame = ttk.Frame(more_card)
+        scale_frame.grid(row=1, column=1, columnspan=3, sticky='w', pady=P)
         self.scale_vars = {}
         default_scales = DEFAULTS.get("scales", ["305", "306"])
         for scale_name, scale_code in SCALE_OPTIONS.items():
             var = tk.BooleanVar(value=(scale_code in default_scales))
             self.scale_vars[scale_code] = var
-            cb = ttk.Checkbutton(scale_frame, text=scale_name, variable=var)
-            cb.pack(side='left', padx=(0, 10))
+            ttk.Checkbutton(scale_frame, text=scale_name, variable=var).pack(side='left', padx=(0, 10))
 
-        row += 2
-        ttk.Label(card_frame, text="排除关键词", font=('Microsoft YaHei', 8, 'bold')).grid(
-            row=row, column=0, sticky='w', pady=(0, 2), columnspan=2)
+        # 排除关键词
+        ttk.Label(more_card, text="排除关键词", font=LBL).grid(row=2, column=0, sticky='w', pady=P)
         self.exclude_var = tk.StringVar(value=DEFAULTS["exclude"])
-        excl_entry = ttk.Entry(card_frame, textvariable=self.exclude_var)
-        excl_entry.grid(row=row+1, column=0, columnspan=2, sticky='ew', pady=(0, 6))
+        ttk.Entry(more_card, textvariable=self.exclude_var).grid(
+            row=2, column=1, columnspan=3, sticky='ew', pady=P)
 
-        row += 2
-        ttk.Label(card_frame, text="操作速度", font=('Microsoft YaHei', 8, 'bold')).grid(
-            row=row, column=0, sticky='w', pady=(0, 2), columnspan=2)
-        speed_frame = ttk.Frame(card_frame)
-        speed_frame.grid(row=row+1, column=0, sticky='w', pady=(0, 6), columnspan=2)
+        # 操作速度 | 定时投递
+        ttk.Label(more_card, text="操作速度", font=LBL).grid(row=3, column=0, sticky='w', pady=P)
+        speed_frame = ttk.Frame(more_card)
+        speed_frame.grid(row=3, column=1, sticky='w', pady=P)
         self.speed_var = tk.StringVar(value=DEFAULTS["speed"])
-        speeds = [("快", "1"), ("正常", "2"), ("慢", "3")]
-        for text, val in speeds:
-            rb = ttk.Radiobutton(speed_frame, text=text, variable=self.speed_var, value=val)
-            rb.pack(side='left', padx=(0, 15))
+        for text, val in [("快", "1"), ("正常", "2"), ("慢", "3")]:
+            ttk.Radiobutton(speed_frame, text=text, variable=self.speed_var, value=val).pack(side='left', padx=(0, 8))
 
-        row += 2
-        cb_frame = ttk.Frame(card_frame)
-        cb_frame.grid(row=row, column=0, sticky='w', pady=(0, 2), columnspan=2)
-        self.intern_var = tk.BooleanVar(value=DEFAULTS["intern"])
-        ttk.Checkbutton(cb_frame, text="只投实习", variable=self.intern_var).pack(side='left', padx=(0, 20))
-        self.login_var = tk.BooleanVar(value=DEFAULTS["login"])
-        ttk.Checkbutton(cb_frame, text="已登录", variable=self.login_var).pack(side='left')
-
-        row += 1
-        cb_frame2 = ttk.Frame(card_frame)
-        cb_frame2.grid(row=row, column=0, sticky='w', pady=(0, 6), columnspan=2)
-        self.rag_var = tk.BooleanVar(value=DEFAULTS["rag_enabled"])
-        ttk.Checkbutton(cb_frame2, text="RAG召回", variable=self.rag_var).pack(side='left', padx=(0, 20))
-        self.agent_var = tk.BooleanVar(value=DEFAULTS["agent_filter"])
-        ttk.Checkbutton(cb_frame2, text="Agent筛选", variable=self.agent_var).pack(side='left')
-
-        row += 1
-        schedule_frame = ttk.Frame(card_frame)
-        schedule_frame.grid(row=row, column=0, sticky='w', pady=(0, 2), columnspan=2)
+        ttk.Label(more_card, text="定时投递", font=LBL).grid(row=3, column=2, sticky='w', padx=(10, 6), pady=P)
+        sched_frame = ttk.Frame(more_card)
+        sched_frame.grid(row=3, column=3, sticky='w', pady=P)
         self.schedule_var = tk.BooleanVar(value=DEFAULTS["schedule"])
-        ttk.Checkbutton(schedule_frame, text="定时投递", variable=self.schedule_var,
+        ttk.Checkbutton(sched_frame, text="", variable=self.schedule_var,
                         command=self._toggle_schedule).pack(side='left')
         self.schedule_hour = tk.StringVar(value=DEFAULTS["schedule_hour"])
         self.schedule_minute = tk.StringVar(value=DEFAULTS["schedule_minute"])
-        self.hour_spin = ttk.Spinbox(schedule_frame, from_=0, to=23, width=3,
+        self.hour_spin = ttk.Spinbox(sched_frame, from_=0, to=23, width=3,
                                      textvariable=self.schedule_hour, format="%02.0f", state='disabled')
-        self.hour_spin.pack(side='left', padx=(4, 1))
-        ttk.Label(schedule_frame, text=":").pack(side='left')
-        self.minute_spin = ttk.Spinbox(schedule_frame, from_=0, to=59, width=3,
+        self.hour_spin.pack(side='left', padx=(0, 1))
+        ttk.Label(sched_frame, text=":").pack(side='left')
+        self.minute_spin = ttk.Spinbox(sched_frame, from_=0, to=59, width=3,
                                        textvariable=self.schedule_minute, format="%02.0f", state='disabled')
         self.minute_spin.pack(side='left', padx=(1, 0))
 
-        card_frame.columnconfigure(0, weight=1)
-        card_frame.columnconfigure(1, weight=1)
+        # 勾选项
+        cb_frame = ttk.Frame(more_card)
+        cb_frame.grid(row=4, column=0, columnspan=4, sticky='w', pady=(P, 0))
+        self.intern_var = tk.BooleanVar(value=DEFAULTS["intern"])
+        ttk.Checkbutton(cb_frame, text="只投实习", variable=self.intern_var).pack(side='left', padx=(0, 12))
+        self.login_var = tk.BooleanVar(value=DEFAULTS["login"])
+        ttk.Checkbutton(cb_frame, text="已登录", variable=self.login_var).pack(side='left', padx=(0, 12))
+        self.rag_var = tk.BooleanVar(value=DEFAULTS["rag_enabled"])
+        ttk.Checkbutton(cb_frame, text="RAG召回", variable=self.rag_var).pack(side='left', padx=(0, 12))
+        self.agent_var = tk.BooleanVar(value=DEFAULTS["agent_filter"])
+        ttk.Checkbutton(cb_frame, text="Agent筛选", variable=self.agent_var).pack(side='left')
+
+        more_card.columnconfigure(1, weight=1)
+        more_card.columnconfigure(3, weight=1)
 
         action_frame = ttk.LabelFrame(root, text="操作", style='Card.TLabelframe')
-        action_frame.pack(fill='x', padx=15, pady=(0, 8))
-        action_frame.configure(padding=8)
+        action_frame.pack(fill='x', padx=12, pady=(0, 4))
+        action_frame.configure(padding=5)
 
         left_frame = ttk.Frame(action_frame)
         left_frame.pack(side='left')
@@ -254,9 +270,9 @@ class ConfigGUI:
                                    style='Danger.TButton', width=6, state='disabled')
         self.stop_btn.pack(side='left', padx=(6, 0))
 
-        flywheel_frame = ttk.LabelFrame(root, text="飞轮", style='Card.TLabelframe')
-        flywheel_frame.pack(fill='x', padx=15, pady=(0, 8))
-        flywheel_frame.configure(padding=8)
+        flywheel_frame = ttk.LabelFrame(self.more_container, text="飞轮", style='Card.TLabelframe')
+        flywheel_frame.pack(fill='x', padx=12, pady=(0, 4))
+        flywheel_frame.configure(padding=5)
 
         self.flywheel_var = tk.StringVar(value="加载中...")
         ttk.Label(flywheel_frame, textvariable=self.flywheel_var, style='Status.TLabel').pack(anchor='w', pady=(0, 4))
@@ -273,21 +289,76 @@ class ConfigGUI:
                    style='Light.TButton').pack(side='left')
 
         # ====== 智能简历区 ======
-        resume_frame = ttk.LabelFrame(root, text="智能简历", style='Card.TLabelframe')
-        resume_frame.pack(fill='x', padx=15, pady=(0, 8))
-        resume_frame.configure(padding=8)
+        resume_frame = ttk.LabelFrame(self.more_container, text="智能简历", style='Card.TLabelframe')
+        resume_frame.pack(fill='x', padx=12, pady=(0, 4))
+        resume_frame.configure(padding=5)
 
-        ttk.Label(resume_frame, text="上传简历 → 匹配JD → 优化简历 → 生成打招呼语",
-                  style='Status.TLabel').pack(anchor='w', pady=(0, 4))
-        ttk.Button(resume_frame, text="打开智能简历助手", command=self.open_resume_window,
-                   style='Primary.TButton').pack(side='left')
+        ttk.Button(resume_frame, text="打开智能简历助手（上传简历 → 匹配JD → 生成打招呼语）",
+                   command=self.open_resume_window, style='Primary.TButton').pack(side='left')
 
         self.status_var = tk.StringVar(value="就绪")
         status_bar = ttk.Label(root, textvariable=self.status_var, style='Status.TLabel')
-        status_bar.pack(fill='x', padx=15, pady=(0, 10), anchor='e')
+        status_bar.pack(fill='x', padx=12, pady=(0, 5), anchor='e')
 
         self.load_settings()
         self.refresh_flywheel_status()
+        self._fit_window()
+
+    def _fit_window(self):
+        """按内容自适应窗口尺寸（折叠/展开后调用）"""
+        try:
+            self.root.update_idletasks()
+            self.root.geometry(f"{self.root.winfo_reqwidth()}x{self.root.winfo_reqheight()}")
+        except Exception:
+            pass
+
+    def toggle_more(self):
+        """展开 / 收起「更多设置」折叠区"""
+        if self._more_open:
+            self.more_container.pack_forget()
+            self.more_toggle_btn.config(text="更多设置 ▾")
+            self._more_open = False
+        else:
+            self.more_container.pack(fill='x', after=self.card_frame)
+            self.more_toggle_btn.config(text="收起设置 ▴")
+            self._more_open = True
+        self._fit_window()
+
+    def open_platform_info(self):
+        """弹出「各招聘平台介绍」面板（实习 / 校招 / 社招 一目了然）"""
+        top = tk.Toplevel(self.root)
+        top.title("各招聘平台介绍")
+        top.transient(self.root)
+        top.resizable(False, False)
+
+        ttk.Label(top,
+                  text="按你的求职类型选平台：实习 → 实习僧 / BOSS；校招 → BOSS、智联、前程无忧；社招 → 基本都适用",
+                  style='Subtitle.TLabel', wraplength=520, justify='left').pack(
+            fill='x', padx=12, pady=(10, 6))
+
+        cols = ("platform", "intern", "campus", "social", "desc")
+        tree = ttk.Treeview(top, columns=cols, show='headings', height=len(PLATFORM_INFO))
+        for cid, text, w, anchor in [
+            ("platform", "平台", 96, 'w'),
+            ("intern", "实习", 46, 'center'),
+            ("campus", "校招", 46, 'center'),
+            ("social", "社招", 46, 'center'),
+            ("desc", "面向人群 / 特点", 320, 'w'),
+        ]:
+            tree.heading(cid, text=text)
+            tree.column(cid, width=w, anchor=anchor)
+        for row in PLATFORM_INFO:
+            tree.insert("", 'end', values=row)
+        tree.pack(fill='both', expand=True, padx=12, pady=(0, 8))
+
+        ttk.Button(top, text="关闭", command=top.destroy,
+                   style='Light.TButton').pack(pady=(0, 10))
+
+        # 位置居中（相对主窗）
+        top.update_idletasks()
+        x = self.root.winfo_rootx() + (self.root.winfo_width() - top.winfo_width()) // 2
+        y = self.root.winfo_rooty() + 60
+        top.geometry(f"+{max(x, 0)}+{max(y, 0)}")
 
     def _toggle_schedule(self):
         state = 'normal' if self.schedule_var.get() else 'disabled'
@@ -296,6 +367,7 @@ class ConfigGUI:
 
     def save_settings(self):
         cfg = {
+            "platform": self.platform_var.get(),
             "keywords": self.kw_var.get(),
             "city": self.city_var.get(),
             "count": self.count_var.get(),
@@ -325,6 +397,7 @@ class ConfigGUI:
         try:
             with open(SETTINGS_FILE, 'r', encoding='utf-8') as f:
                 cfg = json.load(f)
+            self.platform_var.set(cfg.get("platform", DEFAULTS["platform"]))
             self.kw_var.set(cfg.get("keywords", DEFAULTS["keywords"]))
             self.city_var.set(cfg.get("city", DEFAULTS["city"]))
             self.count_var.set(cfg.get("count", DEFAULTS["count"]))
@@ -348,6 +421,7 @@ class ConfigGUI:
     def restore_defaults(self):
         if not messagebox.askyesno("确认", "确定恢复所有设置为默认值？"):
             return
+        self.platform_var.set(DEFAULTS["platform"])
         self.kw_var.set(DEFAULTS["keywords"])
         self.city_var.set(DEFAULTS["city"])
         self.count_var.set(DEFAULTS["count"])

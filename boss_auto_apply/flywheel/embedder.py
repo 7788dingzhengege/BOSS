@@ -77,7 +77,7 @@ def _get_model():
     try:
         from sentence_transformers import SentenceTransformer
         model_name = DEFAULT_CONFIG["model_name"]
-        print(f"[Embedding] 加载模型 {model_name} (首次需下载~130MB, 请等待)...", flush=True)
+        print("[Embedding] 正在加载模型中...", flush=True)
         # device=None -> SentenceTransformer 自动选 cuda/cpu；绝不传 "auto"（非法值）
         _model = SentenceTransformer(model_name, device=None)
         # 兼容新旧版本方法名 (新版改名 get_embedding_dimension)
